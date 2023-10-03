@@ -75,11 +75,11 @@ def inspect_catchment_data(
 
     if echo_info:
         print(f"- Number of models after dropping NA values: {len(rf_df)}.")
-        #print("")
+        # print("")
 
     # Make plots, if requested
     if show_plots:
-        if (pairplot or corrplot):
+        if pairplot or corrplot:
             # Make pair plot, save if requested
             if pairplot:
                 sns.pairplot(rf_df.drop(catchment, axis=1))
@@ -102,7 +102,9 @@ def inspect_catchment_data(
     return rf_df
 
 
-def calculate_percentiles(catchment, df, low_percentile=75, high_percentile=90, echo_info=True):
+def calculate_percentiles(
+    catchment, df, low_percentile=75, high_percentile=90, echo_info=True
+):
     """Calculates rating percentiles in passed DataFrame"""
 
     # Define rating percentiles
@@ -114,26 +116,20 @@ def calculate_percentiles(catchment, df, low_percentile=75, high_percentile=90, 
 
     # Classify values based on percentiles
     df["n_rating"] = 0
+    df["n_rating"] = np.where(df[catchment] < rating_pctile[0], 1, df["n_rating"])
     df["n_rating"] = np.where(
-        df[catchment] < rating_pctile[0], 1, df["n_rating"]
-    )
-    df["n_rating"] = np.where(
-        (df[catchment] >= rating_pctile[0])
-        & (df[catchment] <= rating_pctile[1]),
+        (df[catchment] >= rating_pctile[0]) & (df[catchment] <= rating_pctile[1]),
         2,
         df["n_rating"],
     )
-    df["n_rating"] = np.where(
-        df[catchment] > rating_pctile[1], 3, df["n_rating"]
-    )
+    df["n_rating"] = np.where(df[catchment] > rating_pctile[1], 3, df["n_rating"])
 
     return df
 
 
 def run_model(random_search=True, grid_search=True, n_jobs=4):
-
     # Define file paths
-    #fp = "/home/dwhipp/Model-output/BHF-model-summary-data/"
+    # fp = "/home/dwhipp/Model-output/BHF-model-summary-data/"
     fp = "/Users/whipp/Work/Modeling/Source/Python/detrital-random-forest-git/"
 
     # Create list of Pecube models to consider
@@ -172,7 +168,7 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
             print(80 * "*")
             print("")
             print(f"Working on catchment {catchment}...")
-            #print("")
+            # print("")
 
             # Process catchment data files, clean, and make plots (if requested)
             rf_df = inspect_catchment_data(
@@ -187,7 +183,9 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
             )
 
             # Calculate rating percentiles
-            rf_df = calculate_percentiles(catchment, rf_df, low_percentile=75, high_percentile=90, echo_info=True)
+            rf_df = calculate_percentiles(
+                catchment, rf_df, low_percentile=75, high_percentile=90, echo_info=True
+            )
 
             print(f"Creating test and training data for catchment {catchment}...")
             print("")
@@ -205,8 +203,12 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
 
             # Normalize the data
             sc = StandardScaler()
-            normed_train_data = pd.DataFrame(sc.fit_transform(training), columns=X.columns)
-            normed_test_data = pd.DataFrame(sc.fit_transform(testing), columns=X.columns)
+            normed_train_data = pd.DataFrame(
+                sc.fit_transform(training), columns=X.columns
+            )
+            normed_test_data = pd.DataFrame(
+                sc.fit_transform(testing), columns=X.columns
+            )
 
             print("Performing random forest classification with default parameters...")
             print("")
@@ -231,9 +233,9 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
             print("Feature importances")
             print("")
             print(
-                pd.DataFrame(clf.feature_importances_, index=training.columns).sort_values(
-                    by=0, ascending=False
-                )
+                pd.DataFrame(
+                    clf.feature_importances_, index=training.columns
+                ).sort_values(by=0, ascending=False)
             )
             print("")
 
@@ -242,7 +244,9 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
                 print("")
 
                 # Number of trees in random forest
-                n_estimators = np.linspace(100, 3000, int((3000 - 100) / 200) + 1, dtype=int)
+                n_estimators = np.linspace(
+                    100, 3000, int((3000 - 100) / 200) + 1, dtype=int
+                )
                 # Number of features to consider at every split
                 max_features = ["auto", "sqrt"]
                 # Maximum number of levels in tree
@@ -301,14 +305,14 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
                 print("")
                 print(
                     pd.DataFrame(
-                        rf_random.best_estimator_.feature_importances_, index=training.columns
+                        rf_random.best_estimator_.feature_importances_,
+                        index=training.columns,
                     ).sort_values(by=0, ascending=False)
                 )
                 print("")
 
                 # Perform grid search
                 if grid_search:
-
                     # Find parameter bounds
                     n_est_range = np.linspace(
                         rf_random.best_params_["n_estimators"] - 100,
@@ -359,16 +363,26 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
                     }
 
                     # Base model
-                    rf_grid = RandomForestClassifier(criterion=criterion, bootstrap=bootstrap)
+                    rf_grid = RandomForestClassifier(
+                        criterion=criterion, bootstrap=bootstrap
+                    )
                     # Instantiate the grid search model
                     grid_rf_search = GridSearchCV(
-                        estimator=rf_grid, param_grid=param_grid, cv=5, n_jobs=n_jobs, verbose=2
+                        estimator=rf_grid,
+                        param_grid=param_grid,
+                        cv=5,
+                        n_jobs=n_jobs,
+                        verbose=2,
                     )
                     grid_rf_search.fit(training, training_labels)
 
                     print("Training and testing scores:")
-                    print(f"Training: {grid_rf_search.score(training, training_labels):.4f}")
-                    print(f"Testing: {grid_rf_search.score(testing, testing_labels):.4f}")
+                    print(
+                        f"Training: {grid_rf_search.score(training, training_labels):.4f}"
+                    )
+                    print(
+                        f"Testing: {grid_rf_search.score(testing, testing_labels):.4f}"
+                    )
                     print("")
 
                     best_rf_grid = grid_rf_search.best_estimator_
@@ -385,7 +399,8 @@ def run_model(random_search=True, grid_search=True, n_jobs=4):
 
                     # Append results to a summary DataFrame that can be used to compare results
                     summary_df[catchment] = pd.DataFrame(
-                        rf_random.best_estimator_.feature_importances_, index=training.columns
+                        rf_random.best_estimator_.feature_importances_,
+                        index=training.columns,
                     )
 
                     # Write summary DF output to file
